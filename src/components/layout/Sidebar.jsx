@@ -7,7 +7,7 @@ import {
   Star, MessageCircle, Phone, Handshake, Shield, FileCheck,
   Cookie, AlertCircle, HelpCircle, Globe,
   Briefcase, Scale, Car, Sofa, KeyRound, TrendingUp, HeartHandshake,
-  LayoutGrid, Gem
+  LayoutGrid, Gem, Hash
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -90,6 +90,7 @@ const navGroups = [
       { label: 'Konum Yönetimi', icon: MapPin, path: '/locations', adminOnly: true },
       { label: 'Özellik Yönetimi', icon: Tags, path: '/features', adminOnly: true },
       { label: 'Mülk Tipleri', icon: Building2, path: '/property-types', adminOnly: true },
+      { label: 'Ref No - Konum', icon: Hash, path: '/ref-no-location', adminOnly: true },
       { label: 'Site Ayarları', icon: Settings, path: '/site-settings', adminOnly: true },
     ]
   },
@@ -149,7 +150,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                   )}
                   title={collapsed ? item.label : undefined}
                 >
-                  <item.icon className="w-4.5 h-4.5 flex-shrink-0 w-5 h-5" />
+                  <item.icon className="flex-shrink-0 w-5 h-5" />
                   {!collapsed && (
                     <span className="text-sm font-medium">{item.label}</span>
                   )}

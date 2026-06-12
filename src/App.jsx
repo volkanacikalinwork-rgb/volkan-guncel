@@ -49,6 +49,7 @@ import RentalManagement from '@/pages/RentalManagement';
 import InvestmentConsulting from '@/pages/InvestmentConsulting';
 import PropertyCategories from '@/pages/PropertyCategories';
 import GemLinks from '@/pages/GemLinks';
+import RefNoLocation from '@/pages/RefNoLocation';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -95,7 +96,7 @@ const AuthenticatedApp = () => {
         <Route path="/property-types" element={<PropertyTypes />} />
         <Route path="/languages" element={<Languages />} />
         <Route path="/locations" element={<Locations />} />
-        <Route path="/features" border-0 element={<Features />} />
+        <Route path="/features" element={<Features />} />
         <Route path="/site-settings" element={<SiteSettingsPage />} />
         <Route path="/about-us" element={<AboutUs />} />
         <Route path="/why-choose-us" element={<WhyChooseUs />} />
@@ -103,7 +104,7 @@ const AuthenticatedApp = () => {
         <Route path="/client-testimonials" element={<ClientTestimonials />} />
         <Route path="/sell-property" element={<SellProperty />} />
         <Route path="/contact-us" element={<ContactUs />} />
-        <Route path="/partners-and-developers" element={<PartnersAndDevelopers />} />
+        <Route path="/partners-and-developers" border-0 element={<PartnersAndDevelopers />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
@@ -120,13 +121,13 @@ const AuthenticatedApp = () => {
         <Route path="/investment-consulting" element={<InvestmentConsulting />} />
         <Route path="/property-categories" element={<PropertyCategories />} />
         <Route path="/gem-links" element={<GemLinks />} />
+        <Route path="/ref-no-location" element={<RefNoLocation />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };
 
-// Doğrudan inline olarak default export tanımlayarak hatayı engelliyoruz
 export default function App() {
   return (
     <AuthProvider>
