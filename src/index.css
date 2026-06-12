@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 246 83% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 246 83% 62%;
+    --radius: 0.75rem;
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 220 14% 96%;
+    --sidebar-primary: 246 83% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 60% 10%;
+    --sidebar-accent-foreground: 220 14% 96%;
+    --sidebar-border: 224 50% 12%;
+    --sidebar-ring: 246 83% 62%;
+
+    /* Custom brand colors */
+    --brand-violet: 246 83% 62%;
+    --brand-purple: 262 83% 58%;
+    --brand-cyan: 192 91% 52%;
+    --brand-emerald: 160 84% 39%;
+    --brand-amber: 38 55% 42%;
+    --brand-rose: 346 77% 49%;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 220 14% 96%;
+    --card: 224 60% 7%;
+    --card-foreground: 220 14% 96%;
+    --popover: 224 60% 7%;
+    --popover-foreground: 220 14% 96%;
+    --primary: 246 83% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 224 50% 12%;
+    --secondary-foreground: 220 14% 96%;
+    --muted: 224 50% 12%;
+    --muted-foreground: 220 8% 56%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 50% 14%;
+    --input: 224 50% 14%;
+    --ring: 246 83% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-inter;
+  }
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--brand-violet)), hsl(var(--brand-purple)));
+}
+
+.gradient-card {
+  background: linear-gradient(135deg, hsl(var(--brand-violet) / 0.1), hsl(var(--brand-purple) / 0.05));
+}
+
+.sidebar-glow {
+  box-shadow: 4px 0 24px rgba(99, 91, 255, 0.08);
+}
