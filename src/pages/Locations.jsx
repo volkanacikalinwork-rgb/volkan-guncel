@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { Loader2, Plus, Pencil, Check, X, Globe, Building2, Map, MapPin, ChevronRight, ChevronDown, Zap } from 'lucide-react';
+import { Loader2, Plus, Pencil, Check, X, Globe, Building2, Map, MapPin, ChevronRight, ChevronDown, Trash2, Zap } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 
 // URL dostu metin çevirici (Türkçe karakter sorunlarını çözer)
@@ -22,7 +22,7 @@ const LocationList = ({
   useGroups = false, showGroupInput = false, groupValue, setGroupValue,
   expandedGroups, toggleGroup,
   editingItem, setEditingItem, isUpdating, handleSaveEdit, handleDelete,
-  createMutationPending 
+  createMutationPending, bulkDeletePending 
 }) => {
   
   const groupedItems = {};
@@ -70,28 +70,35 @@ const LocationList = ({
       <div 
         key={item.id} 
         onClick={() => onSelect && onSelect(item)}
-        className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-teal-50 border-teal-200 border text-teal-800 shadow-sm' : 'hover:bg-gray-50 border border-transparent text-gray-600'} ${isNested ? 'ml-3 bg-gray-50/50 border-l border-l-teal-200' : ''}`}
+        className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-teal-50 border-teal-200 border text-teal-800 shadow-sm' : 'hover:bg-gray-50 border border-transparent text-gray-600'} ${isNested ? 'ml-3 bg-gray-50/50 border-l border-l-teal-200' : ''}`}
       >
         <span className="text-sm font-semibold truncate pr-2 flex items-center gap-1">
           {item.name}
         </span>
         
-        <div className="flex items-center gap-2 shrink-0">
-          <button 
-            onClick={(e) => { e.stopPropagation(); setEditingItem({ level, id: item.id, oldName: item.name, newName: item.name }); }}
-            className="p-1.5 text-gray-400 hover:text-teal-600 rounded-md transition-colors"
-            title="Düzenle"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleDelete(level, item); }}
-            className="p-1.5 text-gray-400 hover:text-rose-600 rounded-md transition-colors"
-            title="Sil"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-          {onSelect && <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-teal-600 rotate-90' : 'text-gray-300'}`} />}
+        {/* Tıklanabilirliği ve görünürlüğü artırılmış Düzenle/Sil Butonları */}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+            <button 
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setEditingItem({ level, id: item.id, oldName: item.name, newName: item.name }); }}
+              className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+              title="Düzenle"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-px h-4 bg-slate-200"></div>
+            <button 
+              type="button"
+              disabled={bulkDeletePending}
+              onClick={(e) => { e.stopPropagation(); handleDelete(level, item); }}
+              className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+              title="Sil"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {onSelect && <ChevronRight className={`w-4 h-4 ml-1 transition-transform ${isSelected ? 'text-teal-600 rotate-90' : 'text-gray-300'}`} />}
         </div>
       </div>
     );
@@ -167,7 +174,6 @@ export default function Locations() {
   const [selectedCity, setSelectedCity] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState(null);
 
-  // Akordeon Gruplar (Açık/Kapalı durumu)
   const [expandedGroups, setExpandedGroups] = useState({ 'Alanya Merkez': true, 'Avrupa Yakası': true, 'Asya Yakası': true });
 
   const toggleGroup = (groupName) => {
@@ -177,7 +183,7 @@ export default function Locations() {
   const [newCountry, setNewCountry] = useState('');
   const [newCity, setNewCity] = useState('');
   const [newDistrict, setNewDistrict] = useState('');
-  const [newDistrictGroup, setNewDistrictGroup] = useState(''); // İlçeler için yeni grup state'i
+  const [newDistrictGroup, setNewDistrictGroup] = useState(''); 
   const [newNeighborhood, setNewNeighborhood] = useState('');
   const [newNeighborhoodGroup, setNewNeighborhoodGroup] = useState('');
 
@@ -202,11 +208,16 @@ export default function Locations() {
     }
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Location.delete(id),
+  // 🎯 GÜÇLENDİRİLMİŞ ZİNCİRLEME (CASCADE) SİLME MUTASYONU
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (idsToDelete) => {
+      for (const targetId of idsToDelete) {
+        await base44.entities.Location.delete(targetId);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
-      toast.success('Konum silindi!');
+      toast.success('Seçili konum ve altındaki tüm kayıtlar veritabanından KALICI olarak silindi!');
     }
   });
 
@@ -252,55 +263,99 @@ export default function Locations() {
   };
 
   const handleDelete = (level, item) => {
+    // 🎯 SIKI GÜVENLİK: Eğer bu konuma ait bir portföy varsa SİLİNMESİN!
     const isUsedInProperties = properties.some(p => {
-      if (level === 'city') return p.city === slugify(item.name) || p.city_label === item.name;
-      if (level === 'district') return p.district === item.name;
-      if (level === 'neighborhood') return p.neighborhood === item.name;
+      if (level === 'country') {
+        const citiesInThisCountry = locations.filter(l => getCountryName(l) === item.name).map(l => l.city_label || l.city);
+        return citiesInThisCountry.some(cName => p.city?.toLowerCase() === cName?.toLowerCase() || p.city_label?.toLowerCase() === cName?.toLowerCase());
+      }
+      if (level === 'city') {
+        return p.city?.toLowerCase() === slugify(item.name) || p.city_label?.toLowerCase() === item.name.toLowerCase() || p.city?.toLowerCase() === item.name.toLowerCase();
+      }
+      if (level === 'district') {
+        return p.district?.toLowerCase() === item.name.toLowerCase() && (p.city_label || p.city)?.toLowerCase() === selectedCity?.toLowerCase();
+      }
+      if (level === 'neighborhood') {
+        return p.neighborhood?.toLowerCase() === item.name.toLowerCase() && p.district?.toLowerCase() === selectedDistrict?.toLowerCase();
+      }
       return false;
     });
 
     if (isUsedInProperties) {
-      toast.error(`SİLİNEMEZ! "${item.name}" konumuna ait aktif ilan/portföyler bulunuyor.`);
+      toast.error(`SİLİNEMEZ! "${item.name}" konumuna bağlı en az bir adet aktif portföy bulunuyor.`);
       return;
     }
 
-    if (window.confirm(`"${item.name}" silinecek. Emin misiniz?`)) {
-      deleteMutation.mutate(item.id);
+    if (window.confirm(`DİKKAT: "${item.name}" ve ona bağlı olan TÜM alt konumlar veritabanından kalıcı olarak silinecek. Emin misiniz?`)) {
+      
+      let idsToDelete = [];
+      
+      // Gerçek ID'leri toplama
+      if (level === 'country') {
+        idsToDelete = locations.filter(l => getCountryName(l) === item.name).map(l => l.id);
+      } else if (level === 'city') {
+        idsToDelete = locations.filter(l => (l.city_label || l.city) === item.name && getCountryName(l) === selectedCountry).map(l => l.id);
+      } else if (level === 'district') {
+        idsToDelete = locations.filter(l => l.district === item.name && (l.city_label || l.city) === selectedCity && getCountryName(l) === selectedCountry).map(l => l.id);
+      } else if (level === 'neighborhood') {
+        idsToDelete = locations.filter(l => l.neighborhood === item.name && l.district === selectedDistrict && (l.city_label || l.city) === selectedCity && getCountryName(l) === selectedCountry).map(l => l.id);
+        if (idsToDelete.length === 0 && item.id) idsToDelete = [item.id];
+      }
+
+      if (idsToDelete.length === 0 && item.id) {
+         idsToDelete = [item.id];
+      }
+
+      if (idsToDelete.length > 0) {
+        // Silme emrini gönder
+        bulkDeleteMutation.mutate(idsToDelete);
+        
+        // Seçili olan görünümü temizle
+        if (level === 'country' && selectedCountry === item.name) {
+          setSelectedCountry(null); setSelectedCity(null); setSelectedDistrict(null);
+        } else if (level === 'city' && selectedCity === item.name) {
+          setSelectedCity(null); setSelectedDistrict(null);
+        } else if (level === 'district' && selectedDistrict === item.name) {
+          setSelectedDistrict(null);
+        }
+      }
     }
   };
 
-  // --- İSTANBUL İLÇELERİ OTOMATİK KURULUM BOTU ---
-  const handleSeedIstanbulDistricts = async () => {
-    toast.info('İstanbul ilçeleri kuruluyor, lütfen bekleyin...');
+  const handleSeedAllLocations = async () => {
+    toast.info('Yeni konum hiyerarşisi kuruluyor, lütfen bekleyin...');
     try {
-      const avrupa = [
-        "Arnavutköy", "Avcılar", "Bağcılar", "Bahçelievler", "Bakırköy", "Başakşehir", 
-        "Bayrampaşa", "Beşiktaş", "Beylikdüzü", "Beyoğlu", "Büyükçekmece", "Çatalca", 
-        "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", 
-        "Kâğıthane", "Küçükçekmece", "Sarıyer", "Silivri", "Sultangazi", "Şişli", "Zeytinburnu"
-      ];
-      
-      const asya = [
-        "Adalar (Prens Adaları)", "Ataşehir", "Beykoz", "Çekmeköy", "Kadıköy", "Kartal", 
-        "Maltepe", "Pendik", "Sancaktepe", "Sultanbeyli", "Şile", "Tuzla", "Ümraniye", "Üsküdar"
+      const istanbulDistricts = [
+        "Arnavutköy", "Avcılar", "Bağcılar", "Bahçelievler", "Bayrampaşa", "Büyükçekmece", 
+        "Çatalca", "Esenler", "Esenyurt", "Eyüpsultan", "Gaziosmanpaşa", "Güngören", 
+        "Kâğıthane", "Küçükçekmece", "Silivri", "Sultangazi", "Zeytinburnu",
+        "Adalar", "Beykoz", "Çekmeköy", "Sancaktepe", "Sultanbeyli", "Şile", "Tuzla"
       ];
 
-      for (const dist of avrupa) {
+      const alanyaNeighborhoods = [
+        "Cumhuriyet", "Çarşı", "Dinek", "Fığla", "Güller Pınarı", "Hacet", "Hisariçi", 
+        "Kadıpaşa", "Kızlar Pınarı", "Saray", "Küçük Hasbahçe", "Büyük Hasbahçe", 
+        "Payallar", "Mahmutlar", "Demirtaş", "İncekum", "Okurcalar", "Konaklı", 
+        "Avsallar", "Çıplaklı", "Yeşilöz", "Oba", "Cikcilli", "Kestel", 
+        "Mahmutseydi", "Gazipaşa", "Kargıcak", "Türkler", "Tosmur", "Bektaş", "Tepe"
+      ];
+
+      for (const dist of istanbulDistricts) {
         const exists = locations.find(l => slugify(l.city) === 'istanbul' && l.district === dist);
         if (!exists) {
-          await base44.entities.Location.create({ country: 'Türkiye', city: 'istanbul', city_label: 'İstanbul', district: dist, region: 'Avrupa Yakası' });
+          await base44.entities.Location.create({ country: 'Türkiye', city: 'istanbul', city_label: 'İstanbul', district: dist });
         }
       }
 
-      for (const dist of asya) {
-        const exists = locations.find(l => slugify(l.city) === 'istanbul' && l.district === dist);
+      for (const mahalle of alanyaNeighborhoods) {
+        const exists = locations.find(l => slugify(l.city) === 'antalya' && l.district === 'Alanya' && l.neighborhood === mahalle);
         if (!exists) {
-          await base44.entities.Location.create({ country: 'Türkiye', city: 'istanbul', city_label: 'İstanbul', district: dist, region: 'Asya Yakası' });
+          await base44.entities.Location.create({ country: 'Türkiye', city: 'antalya', city_label: 'Antalya', district: 'Alanya', neighborhood: mahalle });
         }
       }
 
       queryClient.invalidateQueries({ queryKey: ['locations'] });
-      toast.success('İstanbul ilçeleri başarıyla yakalara göre gruplandırıldı!');
+      toast.success('İstanbul ve Alanya konumları başarıyla veritabanına işlendi!');
     } catch (err) {
       toast.error('Kurulum sırasında bir hata oluştu.');
     }
@@ -329,7 +384,6 @@ export default function Locations() {
       }, {}))
     : [];
   
-  // İlçelerde artık Grup (Region) bilgisini de okuyacağız
   const districts = selectedCity 
     ? Object.values(locations.filter(l => (l.city_label || l.city) === selectedCity && getCountryName(l) === selectedCountry).reduce((acc, l) => {
         if (l.district && !acc[l.district]) {
@@ -362,7 +416,6 @@ export default function Locations() {
     e.preventDefault();
     if (!newDistrict.trim() || !selectedCity) return;
     
-    // İlçe için girilen grup adını kullanıyoruz (Yoksa null olur, listeye direkt eklenir)
     const regionToUse = newDistrictGroup.trim() || null;
 
     createMutation.mutate({ 
@@ -379,7 +432,6 @@ export default function Locations() {
     e.preventDefault();
     if (!newNeighborhood.trim() || !selectedDistrict) return;
 
-    // Kullanıcı mahalle için grup girdiyse onu kullan, girmediyse ilçenin grubunu (region) koru
     const distRecords = locations.filter(l => l.district === selectedDistrict && (l.city_label || l.city) === selectedCity && getCountryName(l) === selectedCountry);
     const existingDistrictRegion = distRecords.find(l => l.region)?.region || null;
     const regionToUse = newNeighborhoodGroup.trim() || existingDistrictRegion;
@@ -405,15 +457,13 @@ export default function Locations() {
           title="🗺️ Konum Hiyerarşisi Yönetimi" 
           subtitle="Ülke, İl, İlçe ve Mahalle bağlarını kurun, gruplayın ve isimlerini düzenleyin." 
         />
-        
-        {/* Kolaylık için İstanbul İlçesi Kurucu Butonu */}
-        <button 
-          onClick={handleSeedIstanbulDistricts} 
+        {/* <button 
+          onClick={handleSeedAllLocations} 
           disabled={createMutation.isPending}
           className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition-all"
         >
-          <Zap className="w-4 h-4" /> İstanbul İlçelerini Otomatik Kur
-        </button>
+          <Zap className="w-4 h-4" /> Yeni Konumları Otomatik Kur
+        </button> */}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -429,7 +479,7 @@ export default function Locations() {
             }
           }}
           addForm={handleAddCountry} placeholder="Yeni Ülke..." value={newCountry} setValue={setNewCountry}
-          editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending}
+          editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending} bulkDeletePending={bulkDeleteMutation.isPending}
         />
 
         {/* İLLER */}
@@ -444,11 +494,11 @@ export default function Locations() {
               }
             }}
             addForm={handleAddCity} placeholder="Yeni İl..." value={newCity} setValue={setNewCity}
-            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending}
+            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending} bulkDeletePending={bulkDeleteMutation.isPending}
           />
         </div>
 
-        {/* İLÇELER (GRUP ÖZELLİĞİ EKLENDİ) */}
+        {/* İLÇELER */}
         <div className={!selectedCity ? 'opacity-50 pointer-events-none grayscale-[50%]' : 'transition-all duration-300'}>
           <LocationList 
             level="district" title="İlçeler" icon={Map} items={districts} selectedItem={selectedDistrict}
@@ -459,14 +509,14 @@ export default function Locations() {
                 setSelectedDistrict(item.name);
               }
             }}
-            useGroups={true} // İlçeler için gruplama aktif
-            showGroupInput={true} // İlçe için grup girişi aktif
+            useGroups={true} 
+            showGroupInput={true} 
             groupValue={newDistrictGroup}
             setGroupValue={setNewDistrictGroup}
             expandedGroups={expandedGroups}
             toggleGroup={toggleGroup}
             addForm={handleAddDistrict} placeholder="Yeni İlçe..." value={newDistrict} setValue={setNewDistrict}
-            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending}
+            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending} bulkDeletePending={bulkDeleteMutation.isPending}
           />
         </div>
 
@@ -482,7 +532,7 @@ export default function Locations() {
             expandedGroups={expandedGroups}
             toggleGroup={toggleGroup}
             addForm={handleAddNeighborhood} placeholder="Yeni Mahalle..." value={newNeighborhood} setValue={setNewNeighborhood}
-            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending}
+            editingItem={editingItem} setEditingItem={setEditingItem} isUpdating={isUpdating} handleSaveEdit={handleSaveEdit} handleDelete={handleDelete} createMutationPending={createMutation.isPending} bulkDeletePending={bulkDeleteMutation.isPending}
           />
         </div>
 

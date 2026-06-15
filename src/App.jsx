@@ -12,6 +12,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
 import Properties from '@/pages/Properties';
 import PropertyForm from '@/pages/PropertyForm';
+import PropertyForm2 from '@/pages/PropertyForm2'; // YENİ EKLENEN IMPORT
 import Projects from '@/pages/Projects';
 import ProjectForm from '@/pages/ProjectForm';
 import Packages from '@/pages/Packages';
@@ -81,6 +82,10 @@ const AuthenticatedApp = () => {
         <Route path="/properties" element={<Properties />} />
         <Route path="/properties/new" element={<PropertyForm />} />
         <Route path="/properties/:id" element={<PropertyForm />} />
+        
+        {/* YENİ EKLENEN STRATEJİK ADIM ROTASI */}
+        <Route path="/properties/step2/:id" element={<PropertyForm2 />} />
+        
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/new" element={<ProjectForm />} />
         <Route path="/projects/:id" element={<ProjectForm />} />
@@ -104,7 +109,7 @@ const AuthenticatedApp = () => {
         <Route path="/client-testimonials" element={<ClientTestimonials />} />
         <Route path="/sell-property" element={<SellProperty />} />
         <Route path="/contact-us" element={<ContactUs />} />
-        <Route path="/partners-and-developers" border-0 element={<PartnersAndDevelopers />} />
+        <Route path="/partners-and-developers" element={<PartnersAndDevelopers />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
