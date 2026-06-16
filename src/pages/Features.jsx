@@ -19,6 +19,136 @@ const CATEGORIES = [
   { value: 'other',    label: 'Diğer' },
 ];
 
+// Emoji mapping for features
+const FEATURE_EMOJIS = {
+  'pool': '🏊',
+  'seafront': '🌊',
+  'security': '🔒',
+  'elevator': '🛗',
+  'outdoor_parking': '🅿️',
+  'indoor_parking': '🏠',
+  'indoor_pool': '🏊',
+  'private_pool': '🏖️',
+  'private_garden': '🌿',
+  'garden': '🌳',
+  'gym': '💪',
+  'playground': '🛝',
+  'spa': '💆',
+  'citizenship': '🛂',
+  'city_view': '🏙️',
+  'air_conditioning': '❄️',
+  'nature_view': '🌄',
+  'caretaker': '👷',
+  'camera': '📹',
+  'floor_heating': '🔥',
+  'mosque': '🕌',
+  'cable_tv___satellite': '📡',
+  'turkish_bath': '🧖',
+  'beach_transfer_service': '🚌',
+  'game_room': '🎮',
+  'furniture': '🪑',
+  'natural_gas_infrastructure': '⛽',
+  'residence_permit': '📋',
+  'white_goods': '🍽️',
+  'rental_guarantee': '📄',
+  'basketball': '🏀',
+  'football': '⚽',
+  'tennis': '🎾',
+  'concierge_service': '🛎️',
+  'alarm': '🚨',
+  'jacuzzi': '🛁',
+  'sea_view': '🌊',
+  'private_parking': '🅿️',
+  'city_center': '🏙️',
+  'steam_room': '♨️',
+  'barbecue': '🍖',
+  'children_s_pool': '🧒',
+  'generator': '⚡',
+  'infinity_pool': '♾️',
+  'salt_room': '🧂',
+  'volleyball': '🏐',
+  'waterslide': '🎢',
+  'table_tennis': '🏓',
+  'en_suite_bathroom': '🚿',
+  'outdoor_cinema': '🎬',
+  'fire_alarm': '🔥',
+  'sauna': '🧖',
+  'cinema': '🎥',
+  'social_facilities': '👥',
+  'urinal': '🚽',
+  'near_the_sea': '🌊',
+  'winter_garden': '❄️',
+  'near_to_metro': '🚇',
+  'short_term_rent__airbnb_': '🏡',
+  'wheelchair_access_ramp': '♿',
+  'kids_play_area': '🎠',
+  'bathroom_window': '🪟',
+  'invest_in_turkey': '💰',
+  'laundry_room': '🧺',
+  'ready_in_alanya': '🏗️',
+  'golf': '⛳',
+  'billiards': '🎱',
+  'lobby': '🏨',
+  'cafe': '☕',
+  'water_fountain': '⛲',
+  'dance_studio': '💃',
+  'vehicle_charging_station': '🔋',
+  'library': '📚',
+  'residence_in_complex': '🏢',
+  'terrace': '🌅',
+  'temperature_controlled_pool': '🌡️',
+  'lazy_river': '🏞️',
+  'petting_farm': '🐄',
+  'paintball': '🎯',
+  'motor_town': '🏎️',
+  'malibu_beach': '🏝️',
+  'bike_track': '🚴',
+  'horse_riding': '🐴',
+  'fishing_lake': '🎣',
+  'market': '🛒',
+  'bathtub': '🛁',
+  'go_kart': '🏎️',
+  'cricket': '🏏',
+  'surf': '🏄',
+  'skate_park': '🛹',
+  'restaurant': '🍽️',
+  'near_bus_stop': '🚌',
+  'jogging_and_walking_track': '🏃',
+  'beach': '🏖️',
+  'disabled_friendly': '♿',
+  'bowling': '🎳',
+  'relax_room': '🛋️',
+  'snow_room': '❄️',
+  'sports_town': '🏟️',
+  'pergolas': '⛺',
+  'international_school': '🏫',
+  'dressing_room': '👔',
+  'poolside_bar': '🍹',
+  'conference_room': '📊',
+  'water_town': '💧',
+  'shops': '🛍️',
+  'penthouse': '🏰',
+  'events': '🎉',
+  'natural_gas_basement': '⛽',
+  'massage_room': '💆',
+  'smart_home': '📱',
+  'butterfly_garden': '🦋',
+  'yoga': '🧘',
+  'wellness_club': '🌿',
+};
+
+// Common emojis for picker
+const EMOJI_OPTIONS = [
+  '🏊','🌊','🔒','🛗','🅿️','🌿','🌳','💪','🛝','💆','🛂','🏙️','❄️','🌄',
+  '👷','📹','🔥','🕌','📡','🧖','🚌','🎮','🪑','⛽','📋','🍽️','📄',
+  '🏀','⚽','🎾','🛎️','🚨','🛁','♨️','🍖','🧒','⚡','♾️','🧂','🏐',
+  '🎢','🏓','🚿','🎬','🎥','👥','🚽','🪟','💰','🧺','🏗️','⛳','🎱',
+  '🏨','☕','⛲','💃','🔋','📚','🏢','🌅','🌡️','🏞️','🐄','🎯','🏎️',
+  '🏝️','🚴','🐴','🎣','🛒','⛺','🏄','🛹','🏃','🏖️','♿','🎳','🛋️',
+  '🏟️','🏫','👔','🍹','📊','💧','🛍️','🏰','🎉','📱','🦋','🧘','🌺',
+  '🎪','🏕️','🌙','☀️','🌈','⭐','🏆','🎭','🎨','🎵','🌻','🍀','🌸',
+];
+
 const SEED_FEATURES = [
   { name: 'Pool', category: 'outdoor', order: 1 },
   { name: 'Seafront', category: 'location', order: 2 },
@@ -134,7 +264,12 @@ const SEED_FEATURES = [
   { name: 'Butterfly Garden', category: 'outdoor', order: 112 },
   { name: 'Yoga', category: 'leisure', order: 113 },
   { name: 'Wellness Club', category: 'leisure', order: 114 },
-].map(f => ({ ...f, slug: f.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'), is_active: true }));
+].map(f => ({
+  ...f,
+  slug: f.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+  is_active: true,
+  emoji: FEATURE_EMOJIS[f.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')] || '🏠',
+}));
 
 const CATEGORY_COLORS = {
   indoor:   'bg-blue-100 text-blue-700',
@@ -146,7 +281,57 @@ const CATEGORY_COLORS = {
   other:    'bg-gray-100 text-gray-600',
 };
 
-const EMPTY_FORM = { name: '', category: 'other', order: 99 };
+const EMPTY_FORM = { name: '', category: 'other', order: 99, emoji: '🏠' };
+
+// Emoji Picker Component
+function EmojiPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        className="w-10 h-10 flex items-center justify-center text-xl border border-input rounded-md hover:bg-muted transition-colors"
+        title="Emoji seç"
+      >
+        {value || '❓'}
+      </button>
+      {open && (
+        <div className="absolute z-50 top-12 left-0 bg-popover border border-border rounded-xl shadow-xl p-3 w-72">
+          <div className="grid grid-cols-9 gap-1 max-h-48 overflow-y-auto">
+            {EMOJI_OPTIONS.map(emoji => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => { onChange(emoji); setOpen(false); }}
+                className={`text-xl p-1 rounded hover:bg-muted transition-colors ${value === emoji ? 'bg-muted ring-2 ring-primary' : ''}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 pt-2 border-t border-border">
+            <label className="text-xs text-muted-foreground block mb-1">Ya da emoji yapıştır:</label>
+            <input
+              className="w-full text-center text-xl border border-input rounded p-1 h-9 bg-background"
+              maxLength={2}
+              placeholder="📌"
+              value={value}
+              onChange={e => onChange(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper: get emoji for a feature (from DB field or fallback from slug map)
+function getEmoji(f) {
+  if (f.emoji) return f.emoji;
+  return FEATURE_EMOJIS[f.slug] || FEATURE_EMOJIS[f.name?.toLowerCase().replace(/[^a-z0-9]+/g, '_')] || '🏠';
+}
 
 export default function Features() {
   const queryClient = useQueryClient();
@@ -198,7 +383,7 @@ export default function Features() {
 
   const startEdit = (f) => {
     setEditingId(f.id);
-    setEditForm({ name: f.name, category: f.category, order: f.order });
+    setEditForm({ name: f.name, category: f.category, order: f.order, emoji: getEmoji(f) });
   };
 
   const saveEdit = (id) => {
@@ -240,7 +425,12 @@ export default function Features() {
       {showAdd && (
         <div className="bg-card border border-border rounded-xl p-5 mb-6">
           <h2 className="font-semibold mb-4">Yeni Özellik</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3 items-end">
+            {/* Emoji Picker */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Emoji</label>
+              <EmojiPicker value={form.emoji} onChange={v => setForm(p => ({ ...p, emoji: v }))} />
+            </div>
             <div className="md:col-span-2">
               <label className="text-xs text-muted-foreground mb-1 block">Özellik Adı *</label>
               <Input placeholder="Pool, Gym, Terrace..." value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
@@ -261,7 +451,11 @@ export default function Features() {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => createMutation.mutate({ ...form, slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'), is_active: true })}
+              onClick={() => createMutation.mutate({
+                ...form,
+                slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                is_active: true,
+              })}
               disabled={!form.name || createMutation.isPending}
             >Kaydet</Button>
             <Button variant="outline" onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); }}>İptal</Button>
@@ -304,6 +498,7 @@ export default function Features() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">İkon</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Özellik</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Kategori</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell w-20">Sıra</th>
@@ -316,6 +511,10 @@ export default function Features() {
                 <tr key={f.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
                   {editingId === f.id ? (
                     <>
+                      {/* Emoji edit cell */}
+                      <td className="px-4 py-2">
+                        <EmojiPicker value={editForm.emoji} onChange={v => setEditForm(p => ({ ...p, emoji: v }))} />
+                      </td>
                       <td className="px-4 py-2">
                         <Input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="h-8 text-sm" />
                       </td>
@@ -344,6 +543,10 @@ export default function Features() {
                     </>
                   ) : (
                     <>
+                      {/* Emoji display cell */}
+                      <td className="px-4 py-3 text-xl text-center">
+                        {getEmoji(f)}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="text-sm font-medium">{f.name}</span>
                       </td>
