@@ -3,11 +3,28 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff, MapPin, Save, Navigation, Plus, Trash2, Search, Crosshair, Layers, Radar, Copy, ArrowRight, Hash, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { Loader2, Eye, EyeOff, MapPin, Save, Navigation, Plus, Trash2, Search, Crosshair, Layers, Radar, Copy, ArrowRight, Hash, CheckCircle2, AlertCircle, Zap, ChevronDown } from 'lucide-react';
 
 const BASE_CATEGORIES = ['Denize', 'Merkeze', 'Havalimanı', 'AVM / Market'];
 
-// ─── YARDIMCI FONKSİYONLAR ────────────────────────────────────────────────────
+// ─── YARDIMCI FONKSİYONLAR VE FORMATLAYICILAR ──────────────────────────────────
+const slugify = (text) => {
+  if (!text) return '';
+  return text.toString().toLowerCase().trim()
+    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/i̇/g, 'i')
+    .replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+};
+
+const normalizeText = (text) => {
+  if (!text) return '';
+  return text.toString().toLowerCase()
+    .replace(/i̇/g, 'i').replace(/ı/g, 'i')
+    .replace(/ş/g, 's').replace(/ç/g, 'c')
+    .replace(/ö/g, 'o').replace(/ü/g, 'u')
+    .replace(/ğ/g, 'g').trim();
+};
 
 const calculateHaversine = (lat1, lon1, lat2, lon2) => {
   const R = 6371000;
@@ -89,11 +106,71 @@ function parseElements(elements, lat, lng) {
   }).filter(Boolean).sort((a, b) => a.distance - b.distance);
 }
 
+// ─── AKILLI YAZILABİLİR DROPDOWN BİLEŞENİ (COMBOBOX) ──────────────────────────
+function SearchableSelect({ value, onChange, options, placeholder }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState(value || '');
+  const wrapperRef = useRef(null);
+
+  useEffect(() => { setSearch(value || ''); }, [value]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearch(value || '');
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [value]);
+
+  const filtered = options.filter(o => normalizeText(o).includes(normalizeText(search)));
+
+  return (
+    <div className="relative flex-1" ref={wrapperRef}>
+      <input
+        type="text"
+        value={search}
+        onChange={e => {
+          setSearch(e.target.value);
+          setIsOpen(true);
+          onChange(e.target.value); 
+        }}
+        onFocus={() => setIsOpen(true)}
+        placeholder={placeholder}
+        className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:border-teal-500 pr-8 capitalize"
+      />
+      <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-2 pointer-events-none" />
+      {isOpen && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-100 rounded-lg shadow-xl max-h-48 overflow-y-auto z-[9999] p-1">
+          {filtered.map((opt, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => {
+                onChange(opt);
+                setSearch(opt);
+                setIsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md transition-colors capitalize"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const defaultForm = {
   project_name: '',
   notes: '',
   lat: '',
   lng: '',
+  country: 'Türkiye',
+  country_visible: true,
   city: '',
   city_visible: true,
   district: '',
@@ -107,8 +184,9 @@ const defaultForm = {
   selected_airport_name: '',
 };
 
+// ─── OTOMATİK TARAMA DURUMU ───────────────────────────────────────────────────
 const AUTO_SCAN_STEPS = [
-  { key: 'address',   label: 'Adres Çözümleniyor',   icon: '📍' },
+  { key: 'address',   label: 'Adres Çözümleniyor',       icon: '📍' },
   { key: 'airports',  label: 'Havalimanları Aranıyor',    icon: '✈️' },
   { key: 'sea',       label: 'Deniz Mesafesi Ölçülüyor', icon: '🌊' },
   { key: 'market',    label: 'AVM / Market Aranıyor',     icon: '🛍️' },
@@ -116,6 +194,20 @@ const AUTO_SCAN_STEPS = [
   { key: 'transport', label: 'Ulaşım Hatları Taranıyor',  icon: '🚇' },
   { key: 'uni',       label: 'Üniversiteler Aranıyor',    icon: '🎓' },
 ];
+
+// ─── LOKASYON VARLIK KONTROLÜ (MERKEZİ FONKSİYON) ───────────────────────────
+// Şehir + İlçe eşleşmesi yeterliyse true döner (mahalle farklı olsa bile çakışma sayılır)
+function locationExistsInList(locationsList, country, city, district) {
+  const c_country = normalizeText(country || 'Türkiye');
+  const c_city    = normalizeText(city);
+  const c_district = normalizeText(district);
+
+  return locationsList.some(l =>
+    normalizeText(l.country || 'Türkiye') === c_country &&
+    normalizeText(l.city_label || l.city) === c_city &&
+    normalizeText(l.district || '')       === c_district
+  );
+}
 
 export default function PropertyForm() {
   const { id } = useParams();
@@ -140,6 +232,15 @@ export default function PropertyForm() {
     queryFn: () => base44.entities.Property.list(),
   });
 
+  // 🎯 LOCATIONS VERİSİ
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: () => base44.entities.Location.filter({}),
+  });
+
+  const locationsRef = useRef(locations);
+  useEffect(() => { locationsRef.current = locations; }, [locations]);
+
   const mutation = useMutation({
     mutationFn: async (data) => {
       const currentId = !isNew ? id : null;
@@ -149,9 +250,9 @@ export default function PropertyForm() {
       if (isNew) {
         localStorage.removeItem('property_draft_new');
         if ((form.city || form.district) && form.property_ref) {
-          const cityTarget = form.city?.toLowerCase().trim();
-          const districtTarget = form.district?.toLowerCase().trim();
-          const matchedRule = refNoConfigs.find(c => c.label.toLowerCase() === districtTarget) || refNoConfigs.find(c => c.label.toLowerCase() === cityTarget);
+          const cityTarget = normalizeText(form.city);
+          const districtTarget = normalizeText(form.district);
+          const matchedRule = refNoConfigs.find(c => normalizeText(c.label) === districtTarget) || refNoConfigs.find(c => normalizeText(c.label) === cityTarget);
           
           if (matchedRule?.value && form.property_ref.startsWith(matchedRule.value + '-')) {
             const numPart = parseInt(form.property_ref.replace(matchedRule.value + '-', ''), 10);
@@ -167,11 +268,8 @@ export default function PropertyForm() {
       queryClient.invalidateQueries({ queryKey: ['all-properties-for-validation'] });
       toast.success('Tüm konum verileri veritabanına mühürlendi!');
       const savedId = res?.id || res?.[0]?.id || res?.data?.id || id;
-      
-      // ─── KRİTİK GÜNCELLEME ──────────────────────────────────────────────────
-      // Birinci adım başarıyla kaydedildiğinde doğrudan ikinci adım formuna yönlendirir.
-      navigate(`/properties/step2/${savedId}`);
-      // ────────────────────────────────────────────────────────────────────────
+      if (isNew && savedId !== 'new') navigate(`/properties/${savedId}`);
+      else navigate('/properties');
     },
   });
 
@@ -179,47 +277,35 @@ export default function PropertyForm() {
   const [coordsInput, setCoordsInput] = useState('');
   const [geoLoading, setGeoLoading] = useState(false);
 
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-  const [mapSearchQuery, setMapSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
-  const [mapType, setMapType] = useState('satellite');
-  const [isClickSelectActive, setIsClickSelectActive] = useState(false);
-  const [targetCoordsInput, setTargetCoordsInput] = useState('');
+  // 🎯 KONUM SEÇENEKLERİNİ FİLTRELEYEN MOTORLAR
+  const availableCountries = Array.from(new Set(locations.map(l => l.country).filter(Boolean))).sort();
 
-  const [crowDistance, setCrowDistance] = useState(null);
-  const [roadDistance, setRoadDistance] = useState(null);
-  const [roadLoading, setRoadLoading] = useState(false);
-  const [measuredDistance, setMeasuredDistance] = useState(null);
-  const [selectedDistanceType, setSelectedDistanceType] = useState(null);
+  const availableCities = Array.from(new Set(locations
+    .filter(l => !form.country || normalizeText(l.country) === normalizeText(form.country))
+    .map(l => l.city_label || l.city)
+    .filter(Boolean)
+  )).sort();
 
-  const [autoScanActive, setAutoScanActive] = useState(false);
-  const [autoScanSteps, setAutoScanSteps] = useState({});
+  const availableDistricts = Array.from(new Set(locations
+    .filter(l =>
+      (!form.country || normalizeText(l.country) === normalizeText(form.country)) &&
+      (!form.city || normalizeText(l.city_label || l.city) === normalizeText(form.city))
+    )
+    .map(l => l.district)
+    .filter(Boolean)
+  )).sort();
 
-  const [radarResults, setRadarResults] = useState([]);
-  const [radarLoading, setRadarLoading] = useState(false);
-  const [airportResults, setAirportResults] = useState([]);
-  const [airportWalkDistances, setAirportWalkDistances] = useState({});
-  const [seaDistance, setSeaDistance] = useState(null);
-  const [marketResult, setMarketResult] = useState(null);
-  const [hospitalResults, setHospitalResults] = useState([]);
-  const [transportResults, setTransportResults] = useState([]);
-  const [uniResults, setUniResults] = useState([]);
+  const availableNeighborhoods = Array.from(new Set(locations
+    .filter(l =>
+      (!form.country || normalizeText(l.country) === normalizeText(form.country)) &&
+      (!form.city || normalizeText(l.city_label || l.city) === normalizeText(form.city)) &&
+      (!form.district || normalizeText(l.district) === normalizeText(form.district))
+    )
+    .map(l => l.neighborhood)
+    .filter(Boolean)
+  )).sort();
 
-  const [compiledTextOutput, setCompiledTextOutput] = useState('');
-  const [jsonInput, setJsonInput] = useState('');
-  const [addedLabels, setAddedLabels] = useState(new Set());
-
-  const mapRef = useRef(null);
-  const tileLayerRef = useRef(null);
-  const mainMarkerRef = useRef(null);
-  const targetMarkerRef = useRef(null);
-  const polylineRef = useRef(null);
-  const isClickSelectActiveRef = useRef(isClickSelectActive);
-  useEffect(() => { isClickSelectActiveRef.current = isClickSelectActive; }, [isClickSelectActive]);
-  const formRef = useRef(form);
-  useEffect(() => { formRef.current = form; }, [form]);
-
+  // ─── DRAFT YÜKLEME ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isNew && !draftLoaded.current) {
       const saved = localStorage.getItem('property_draft_new');
@@ -249,12 +335,56 @@ export default function PropertyForm() {
     }
   }, [propertyData]);
 
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [mapType, setMapType] = useState('satellite');
+  const [isClickSelectActive, setIsClickSelectActive] = useState(false);
+  const [targetCoordsInput, setTargetCoordsInput] = useState('');
+
+  const [crowDistance, setCrowDistance] = useState(null);
+  const [roadDistance, setRoadDistance] = useState(null);
+  const [roadLoading, setRoadLoading] = useState(false);
+  const [measuredDistance, setMeasuredDistance] = useState(null);
+  const [selectedDistanceType, setSelectedDistanceType] = useState(null);
+
+  const [autoScanActive, setAutoScanActive] = useState(false);
+  const [autoScanSteps, setAutoScanSteps] = useState({}); 
+
+  const [radarResults, setRadarResults] = useState([]);
+  const [radarLoading, setRadarLoading] = useState(false);
+  const [airportResults, setAirportResults] = useState([]);
+  const [airportWalkDistances, setAirportWalkDistances] = useState({});
+  const [seaDistance, setSeaDistance] = useState(null);
+  const [marketResult, setMarketResult] = useState(null);
+  const [hospitalResults, setHospitalResults] = useState([]);
+  const [transportResults, setTransportResults] = useState([]);
+  const [uniResults, setUniResults] = useState([]);
+
+  const [compiledTextOutput, setCompiledTextOutput] = useState('');
+  const [jsonInput, setJsonInput] = useState('');
+  const [addedLabels, setAddedLabels] = useState(new Set());
+
+  const mapRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const mainMarkerRef = useRef(null);
+  const targetMarkerRef = useRef(null);
+  const polylineRef = useRef(null);
+  const isClickSelectActiveRef = useRef(isClickSelectActive);
+  useEffect(() => { isClickSelectActiveRef.current = isClickSelectActive; }, [isClickSelectActive]);
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
+
+  // ─── CANLI METİN GÜNCELLEME ───────────────────────────────────────────────────
   const formatMeters = (m) => isNaN(m) ? m : (Number(m) >= 1000 ? `${(Number(m) / 1000).toFixed(2)} km` : `${m} m`);
 
   useEffect(() => {
     let text = '';
     if (form.project_name) text += `🏗️ Proje Adı: ${form.project_name}\n`;
-    if (form.city) text += `📍 Konum Bilgisi: ${form.city.toUpperCase()}`;
+    if (form.custom_id) text += `🆔 Portföy No: ${form.custom_id}\n`;
+    if (form.country) text += `📍 Konum Bilgisi: ${form.country.toUpperCase()}`;
+    if (form.city) text += ` / ${form.city.toUpperCase()}`;
     if (form.district) text += ` / ${form.district}`;
     if (form.neighborhood) text += ` / ${form.neighborhood}\n`;
     if (form.lat && form.lng) text += `🌐 Coğrafi Koordinatlar -> enlem : ${form.lat} , boylam : ${form.lng}\n`;
@@ -274,8 +404,9 @@ export default function PropertyForm() {
       if (!BASE_CATEGORIES.includes(d.label)) text += `• ${d.label}: ${formatMeters(d.meters)}\n`;
     });
     setCompiledTextOutput(text);
-  }, [form.project_name, form.city, form.district, form.neighborhood, form.distances, form.lat, form.lng, form.property_ref, form.selected_airport_name]);
+  }, [form.project_name, form.country, form.city, form.district, form.neighborhood, form.distances, form.lat, form.lng, form.property_ref, form.selected_airport_name, form.custom_id]);
 
+  // ─── ARAMA ÖNERİLERİ ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapSearchQuery.trim()) { setSuggestions([]); return; }
     const t = setTimeout(async () => {
@@ -287,6 +418,7 @@ export default function PropertyForm() {
     return () => clearTimeout(t);
   }, [mapSearchQuery]);
 
+  // ─── LEAFLET YÜKLEME ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!document.getElementById('leaflet-css')) {
       const link = Object.assign(document.createElement('link'), { id: 'leaflet-css', rel: 'stylesheet', href: 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' });
@@ -299,6 +431,7 @@ export default function PropertyForm() {
     } else { setLeafletLoaded(true); }
   }, []);
 
+  // ─── HARİTA BAŞLATMA ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!leafletLoaded || !window.L || !document.getElementById('interactive-map')) return;
     const L = window.L;
@@ -350,6 +483,79 @@ export default function PropertyForm() {
     });
   }, [leafletLoaded, mapType, form.lat, form.lng]);
 
+  // ─── ⚡ OTOMATİK VERİTABANI İŞLEYİCİ (ADRES ÇÖZÜCÜ) ───────────────────────────
+  // 🔧 DÜZELTME: Artık sadece Şehir+İlçe bazlı kontrol yapılıyor (mahalle farklı olsa
+  //    da tekrar kayıt önleniyor). locationsRef yerine güncel snapshot alınıyor.
+  const processAndSaveNominatimData = useCallback(async (addr) => {
+    const country = (addr.country || 'Türkiye').trim();
+    const cityClean = (addr.province || addr.city || addr.state || '').toLowerCase().replace(' ili', '').replace('büyükşehir belediyesi', '').trim();
+    const districtClean = (addr.district || addr.city_district || addr.town || addr.borough || '').trim();
+    let rawMahalle = addr.neighborhood || addr.neighbourhood || addr.quarter || addr.suburb || addr.village || '';
+    if (rawMahalle === districtClean) rawMahalle = '';
+    const neighborhoodClean = rawMahalle.trim().replace(/\s+(Mahallesi|mahallesi|Mah\.|mah\.|Mah|mah)$/i, '');
+
+    const capitalize = s => s ? s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '';
+    const finalCountry    = capitalize(country);
+    const finalCity       = capitalize(cityClean);
+    const finalDistrict   = capitalize(districtClean);
+    const finalNeigh      = capitalize(neighborhoodClean);
+
+    let autoRef = '';
+    if (isNew) {
+      const cityTarget     = normalizeText(finalCity);
+      const districtTarget = normalizeText(finalDistrict);
+      const matchedRule    = refNoConfigs.find(c => normalizeText(c.label) === districtTarget) || 
+                             refNoConfigs.find(c => normalizeText(c.label) === cityTarget);
+      
+      if (matchedRule) {
+        let num = matchedRule.next_number || 1;
+        let ref = `${matchedRule.value}-${String(num).padStart(2, '0')}`;
+        while (allProperties.some(p => p.property_ref === ref && p.id !== id)) {
+          num++;
+          ref = `${matchedRule.value}-${String(num).padStart(2, '0')}`;
+        }
+        autoRef = ref;
+      }
+    }
+
+    setForm(prev => ({ 
+      ...prev, 
+      country:      finalCountry,
+      city:         finalCity, 
+      district:     finalDistrict, 
+      neighborhood: finalNeigh,
+      property_ref: (isNew && autoRef) ? autoRef : prev.property_ref
+    }));
+
+    // ─── 🔧 DÜZELTME: Şehir + İlçe bazlı kontrol (mahalle farklı olsa da kaydı engelle) ───
+    if (!finalCity || !finalDistrict) return; // Şehir/ilçe yoksa kaydetme
+
+    // locationsRef.current'taki güncel listeyi kullan
+    const alreadyExists = locationExistsInList(
+      locationsRef.current,
+      finalCountry,
+      finalCity,
+      finalDistrict
+    );
+
+    if (!alreadyExists) {
+      try {
+        await base44.entities.Location.create({
+          country:    finalCountry,
+          city:       slugify(finalCity),
+          city_label: finalCity,
+          district:   finalDistrict,
+          neighborhood: finalNeigh,
+        });
+        queryClient.invalidateQueries({ queryKey: ['locations'] });
+        toast.success(`${finalDistrict} veritabanına otomatik eklendi!`);
+      } catch (e) {
+        // Sessizce geç — race condition'da başka istek zaten eklemiş olabilir
+      }
+    }
+  }, [isNew, id, refNoConfigs, allProperties, queryClient]);
+
+  // ─── ⚡ OTOMATİK TARAMA FONKSİYONU ───────────────────────────────────────────
   const runAutoScan = useCallback(async (lat, lng) => {
     if (!lat || !lng) return;
     const latF = parseFloat(lat);
@@ -369,45 +575,17 @@ export default function PropertyForm() {
     const setStep = (key, status) =>
       setAutoScanSteps(prev => ({ ...prev, [key]: status }));
 
+    // 1. Adres çözümleme
     setStep('address', 'loading');
     try {
       const data = await nominatimReverse(lat, lng);
       if (data?.address) {
-        const addr = data.address;
-        const city = (addr.province || addr.city || addr.state || '').toLowerCase().replace(' ili', '').replace('büyükşehir belediyesi', '').trim();
-        const district = (addr.district || addr.city_district || addr.town || addr.borough || '').trim();
-        let rawMahalle = addr.neighborhood || addr.neighbourhood || addr.quarter || addr.suburb || addr.village || '';
-        if (rawMahalle === district) rawMahalle = '';
-        const neighborhood = rawMahalle.trim().replace(/\s+(Mahallesi|mahallesi|Mah\.|mah\.|Mah|mah)$/i, '');
-        
-        let autoRef = '';
-        if (isNew) {
-          const cityTarget = city.toLowerCase().trim();
-          const districtTarget = district.toLowerCase().trim();
-          const matchedRule = refNoConfigs.find(c => c.label.toLowerCase() === districtTarget) || refNoConfigs.find(c => c.label.toLowerCase() === cityTarget);
-          
-          if (matchedRule) {
-            let num = matchedRule.next_number || 1;
-            let ref = `${matchedRule.value}-${String(num).padStart(2, '0')}`;
-            while (allProperties.some(p => p.property_ref === ref && p.id !== id)) {
-              num++;
-              ref = `${matchedRule.value}-${String(num).padStart(2, '0')}`;
-            }
-            autoRef = ref;
-          }
-        }
-
-        setForm(prev => ({ 
-          ...prev, 
-          city, 
-          district, 
-          neighborhood,
-          property_ref: (isNew && autoRef) ? autoRef : prev.property_ref
-        }));
+        await processAndSaveNominatimData(data.address);
       }
       setStep('address', 'done');
     } catch (_) { setStep('address', 'error'); }
 
+    // 2. Havalimanları 
     setStep('airports', 'loading');
     try {
       const radiusSteps = [50000, 150000, 300000];
@@ -444,7 +622,7 @@ export default function PropertyForm() {
       }
     } catch (_) { setStep('airports', 'error'); }
 
-    setStep('rose', 'loading');
+    // 3. Deniz / plaj mesafesi
     setStep('sea', 'loading');
     try {
       const radiusSteps = [5000, 15000, 45000, 100000, 250000];
@@ -468,6 +646,7 @@ export default function PropertyForm() {
       setStep('sea', found !== null ? 'done' : 'error');
     } catch (_) { setStep('sea', 'error'); }
 
+    // 4. AVM / Market
     setStep('market', 'loading');
     try {
       const query = `[out:json][timeout:25];(nwr["shop"~"mall|supermarket|wholesale|convenience"](around:20000,${lat},${lng});); out center;`;
@@ -484,6 +663,7 @@ export default function PropertyForm() {
       } else { setStep('market', 'error'); }
     } catch (_) { setStep('market', 'error'); }
 
+    // 5. Hastane
     setStep('hospital', 'loading');
     try {
       const query = `[out:json][timeout:25];(nwr["amenity"~"hospital|clinic"](around:30000,${lat},${lng});nwr["healthcare"="hospital"](around:30000,${lat},${lng});); out center;`;
@@ -499,6 +679,7 @@ export default function PropertyForm() {
       } else { setStep('hospital', 'error'); }
     } catch (_) { setStep('hospital', 'error'); }
 
+    // 6. Toplu taşıma
     setStep('transport', 'loading');
     try {
       const query = `[out:json][timeout:25];(nwr["railway"~"station|subway_entrance|tram_stop|halt"](around:10000,${lat},${lng});nwr["public_transport"~"station|stop_position|platform"](around:5000,${lat},${lng});nwr["highway"~"bus_stop"](around:3000,${lat},${lng});nwr["amenity"="bus_station"](around:10000,${lat},${lng});); out center;`;
@@ -527,6 +708,7 @@ export default function PropertyForm() {
       } else { setStep('transport', 'error'); }
     } catch (_) { setStep('transport', 'error'); }
 
+    // 7. Üniversite
     setStep('uni', 'loading');
     try {
       const query = `[out:json][timeout:25];(nwr["amenity"~"university|college"](around:25000,${lat},${lng});); out center;`;
@@ -540,8 +722,9 @@ export default function PropertyForm() {
 
     setAutoScanActive(false);
     toast.success('🎯 Otomatik tarama tamamlandı! Tüm sonuçlar hazır.');
-  }, [isNew, id, refNoConfigs, allProperties]);
+  }, [processAndSaveNominatimData]);
 
+  // ─── ⚡ KOORDİNAT DEĞİŞTİĞİNDE OTOMATİK TARAMAYI BAŞLAT ──────────────────────
   const lastScannedCoord = useRef('');
   useEffect(() => {
     const coordKey = `${form.lat},${form.lng}`;
@@ -558,9 +741,9 @@ export default function PropertyForm() {
     if (!isNew) return; 
     if (!form.city && !form.district) return;
 
-    const cityTarget = form.city?.toLowerCase().trim();
-    const districtTarget = form.district?.toLowerCase().trim();
-    const matchedRule = refNoConfigs.find(c => c.label.toLowerCase() === districtTarget) || refNoConfigs.find(c => c.label.toLowerCase() === cityTarget);
+    const cityTarget = normalizeText(form.city);
+    const districtTarget = normalizeText(form.district);
+    const matchedRule = refNoConfigs.find(c => normalizeText(c.label) === districtTarget) || refNoConfigs.find(c => normalizeText(c.label) === cityTarget);
 
     if (matchedRule) {
       let num = matchedRule.next_number || 1;
@@ -577,6 +760,7 @@ export default function PropertyForm() {
     }
   }, [form.city, form.district, refNoConfigs, allProperties, isNew, id]);
 
+  // ─── FORM HELPERs ─────────────────────────────────────────────────────────────
   const savedLabels = form.distances?.map(d => d.label) || [];
   const availableCategories = BASE_CATEGORIES.filter(cat => !savedLabels.includes(cat));
   const extraDistances = form.distances?.filter(d => !BASE_CATEGORIES.includes(d.label)) || [];
@@ -628,33 +812,20 @@ export default function PropertyForm() {
     await runAutoScan(form.lat, form.lng);
   }
 
-  async function handleAutoScanNearbyRadar() {
-    if (!form.lat || !form.lng) { toast.error('Önce koordinatları kilitleyin!'); return; }
-    setRadarLoading(true); setRadarResults([]);
-    const query = `[out:json][timeout:45];(nwr["shop"~"mall|supermarket"](around:5000,${form.lat},${form.lng});nwr["amenity"="hospital"](around:5000,${form.lat},${form.lng});nwr["railway"~"station|subway_entrance"](around:5000,${form.lat},${form.lng});nwr["highway"="bus_stop"](around:2000,${form.lat},${form.lng});nwr["tourism"="museum"](around:10000,${form.lat},${form.lng});nwr["historic"~"castle|ruins"](around:10000,${form.lat},${form.lng});); out center;`;
-    const rawData = await overpassFetch(query, 25000);
-    if (!rawData?.elements?.length) { toast.error('Yakın çevrede radar datası okunamadı.'); setRadarLoading(false); return; }
-    const parsed = parseElements(rawData.elements, form.lat, form.lng).map(el => {
-      const tags = el.tags || {};
-      let typeLabel = '📍 Önemli Konum';
-      if (tags.shop === 'mall') typeLabel = '🛍️ AVM';
-      else if (tags.shop === 'supermarket') typeLabel = '🛒 Market';
-      else if (tags.amenity === 'hospital') typeLabel = '🏥 Hastane';
-      else if (tags.railway) typeLabel = '🚇 Raylı Sistem';
-      else if (tags.highway === 'bus_stop') typeLabel = '🚌 Otobüs Durağı';
-      else if (tags.tourism === 'museum' || tags.historic) typeLabel = '🏛️ Tarihi/Kültürel Yapı';
-      return { id: el.id, name: tags.name || tags.operator || `${typeLabel} (Tanımsız)`, type: typeLabel, distance: el.distance };
-    });
-    setRadarResults(parsed.slice(0, 20));
-    toast.success('Sosyal çevre radarı kilitlendi!');
-    setRadarLoading(false);
-  }
-
   async function handleGoToMainCoords() {
     if (!coordsInput.trim()) { toast.error('Lütfen koordinatları girin.'); return; }
     if (!/^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$/.test(coordsInput)) { toast.error('Format hatalı! Örnek: 36.542, 32.037'); return; }
     const [latStr, lngStr] = coordsInput.split(',').map(s => s.trim());
     setForm(prev => ({ ...prev, lat: latStr, lng: lngStr }));
+
+    setGeoLoading(true);
+    try {
+      const data = await nominatimReverse(latStr, lngStr);
+      if (data?.address) {
+        await processAndSaveNominatimData(data.address);
+      }
+    } catch (err) { toast.error("Adres çözümlenemedi."); }
+    setGeoLoading(false);
 
     if (mapRef.current && leafletLoaded) {
       const L = window.L;
@@ -720,9 +891,9 @@ export default function PropertyForm() {
 
   function handleAutoGenerateRefNo() {
     if (!form.city && !form.district) { toast.error('Önce mülk konumunu (Şehir/İlçe) belirleyin!'); return; }
-    const cityTarget = form.city?.toLowerCase().trim();
-    const districtTarget = form.district?.toLowerCase().trim();
-    const matchedRule = refNoConfigs.find(c => c.label.toLowerCase() === districtTarget) || refNoConfigs.find(c => c.label.toLowerCase() === cityTarget);
+    const cityTarget = normalizeText(form.city);
+    const districtTarget = normalizeText(form.district);
+    const matchedRule = refNoConfigs.find(c => normalizeText(c.label) === districtTarget) || refNoConfigs.find(c => normalizeText(c.label) === cityTarget);
     
     if (!matchedRule) { toast.error(`"${form.district || form.city}" için tanımlanmış Ref No kuralı bulunamadı.`); return; }
     let num = matchedRule.next_number || 1;
@@ -780,6 +951,31 @@ export default function PropertyForm() {
         push(`${prefix}${item.isim}`, item.mesafe);
       });
 
+      const capitalize = s => s ? s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '';
+      const finalCity     = capitalize(incomingCity);
+      const finalDistrict = capitalize(incomingDistrict);
+      const finalNeigh    = capitalize(incomingNeighborhood);
+
+      // ─── 🔧 DÜZELTME: JSON paste'de de Şehir+İlçe bazlı kontrol ───
+      const alreadyExists = locationExistsInList(
+        locationsRef.current,
+        'Türkiye',
+        finalCity,
+        finalDistrict
+      );
+
+      if (!alreadyExists && finalCity && finalDistrict) {
+        base44.entities.Location.create({
+          country:      'Türkiye',
+          city:         slugify(finalCity),
+          city_label:   finalCity,
+          district:     finalDistrict,
+          neighborhood: finalNeigh,
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        }).catch(() => {});
+      }
+
       setForm(prev => {
         const arr = [...(prev.distances || [])];
         collected.forEach(inc => {
@@ -792,7 +988,8 @@ export default function PropertyForm() {
           if (ll.includes('havalimanı') && !arr.find(d => d.label === 'Havalimanı')) arr.push({ label: 'Havalimanı', meters: inc.meters, visible: true });
           if ((ll.includes('deniz') || ll.includes('sahil') || ll.includes('plaj')) && !arr.find(d => d.label === 'Denize')) arr.push({ label: 'Denize', meters: inc.meters, visible: true });
         });
-        return { ...prev, lat: String(incomingLat), lng: String(incomingLng), city: incomingCity, district: incomingDistrict, neighborhood: incomingNeighborhood, distances: arr };
+
+        return { ...prev, lat: String(incomingLat), lng: String(incomingLng), city: finalCity, district: finalDistrict, neighborhood: finalNeigh, distances: arr };
       });
       setCoordsInput(`${incomingLat}, ${incomingLng}`);
       setJsonInput('');
@@ -863,7 +1060,7 @@ export default function PropertyForm() {
             onClick={() => runAutoScan(form.lat, form.lng)}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black py-2 rounded-xl flex items-center justify-center gap-1.5"
           >
-            Reflesh Raporu
+            🔄 Yeniden Tara
           </button>
         )}
       </div>
@@ -872,7 +1069,11 @@ export default function PropertyForm() {
 
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start select-none">
+
+      {/* SOL TARAF */}
       <div className="lg:col-span-5 space-y-5">
+
+        {/* BAŞLIK */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 text-xs font-black">01</div>
@@ -889,6 +1090,7 @@ export default function PropertyForm() {
           )}
         </div>
 
+        {/* PROJE ADI & NOT */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="space-y-1">
             <label className="text-[11px] font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">🏗️ Proje Adı <span className="text-rose-500">*</span></label>
@@ -902,6 +1104,7 @@ export default function PropertyForm() {
           </div>
         </div>
 
+        {/* KOORDİNAT & REF NO */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
           <div className="space-y-1">
             <label className="text-[11px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1">
@@ -928,6 +1131,7 @@ export default function PropertyForm() {
             </p>
           </div>
 
+          {/* OTOMATİK TARAMA DURUM PANELİ */}
           <AutoScanPanel />
 
           <div className="space-y-1">
@@ -936,14 +1140,15 @@ export default function PropertyForm() {
               <button type="button" onClick={handleAutoGenerateRefNo} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-lg transition-all flex items-center gap-1">🔄 Otomatik Üret</button>
             </div>
             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 focus-within:bg-white focus-within:border-teal-500 transition-all">
-              <input type="text" value={form.property_ref || ''} onChange={e => setForm(p => ({ ...p, property_ref: e.target.value }))} placeholder="Kural eşleşmesi için buraya basın" className="w-full bg-transparent border-0 p-0 text-xs font-mono font-bold text-gray-800 placeholder-gray-300 focus:ring-0 outline-none" />
+              <input type="text" value={form.property_ref || ''} onChange={e => setForm(p => ({ ...p, property_ref: e.target.value }))} placeholder="Kural eşleşmesi için butona basın veya elle girin" className="w-full bg-transparent border-0 p-0 text-xs font-mono font-bold text-gray-800 placeholder-gray-300 focus:ring-0 outline-none" />
             </div>
           </div>
 
+          {/* SORGU SONUÇLARI PANELLERİ */}
           {form.lat && form.lng && (
             <div className="space-y-2 pt-2 border-t border-gray-100">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-gray-400 tracking-wider uppercase">📊 Tarama Raporları</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">📊 Tarama Sonuçları</p>
                 <button
                   type="button"
                   onClick={() => runAutoScan(form.lat, form.lng)}
@@ -1015,8 +1220,9 @@ export default function PropertyForm() {
             </div>
           )}
 
+          {/* ANA MESAFE KARTLARI */}
           <div className="pt-3 border-t border-gray-100 space-y-3">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">📌 Ana Kategori Mesafeleri</h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">📌 Ana Kurumsal Mesafe Kartları</h3>
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 { label: 'Denize', icon: '🏖️', name: 'Denize Uzaklık' },
@@ -1037,26 +1243,62 @@ export default function PropertyForm() {
             </div>
           </div>
 
+          {/* ÜLKE / ŞEHİR / İLÇE / MAHALLE */}
           <div className="space-y-2.5 pt-2 border-t border-gray-100">
-            {[
-              { key: 'city', visKey: 'city_visible', label: 'ŞEHİR' },
-              { key: 'district', visKey: 'district_visible', label: 'İLÇE' },
-              { key: 'neighborhood', visKey: 'neighborhood_visible', label: 'MAHALLE' },
-            ].map(({ key, visKey, label }) => (
-              <div key={key} className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100/70">
-                <span className="text-[11px] font-bold text-gray-500 w-16 pl-1">{label}</span>
-                <input type="text" value={form[key] || ''} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:outline-none" placeholder="Bekleniyor..." />
-                <button type="button" onClick={() => setForm(p => ({ ...p, [visKey]: !p[visKey] }))} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all ${form[visKey] ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
-                  {form[visKey] ? 'Göster' : 'Gizle'}
-                </button>
-              </div>
-            ))}
+            {/* ÜLKE */}
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100/70">
+              <span className="text-[11px] font-bold text-gray-500 w-16 pl-1">ÜLKE</span>
+              <SearchableSelect
+                value={form.country}
+                onChange={val => setForm(p => ({ ...p, country: val, city: '', district: '', neighborhood: '' }))}
+                options={availableCountries}
+                placeholder="Ülke seçin veya yazın..."
+              />
+              <button type="button" onClick={() => setForm(p => ({ ...p, country_visible: !p.country_visible }))} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex-shrink-0 ${form.country_visible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>{form.country_visible ? 'Göster' : 'Gizle'}</button>
+            </div>
+
+            {/* ŞEHİR */}
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100/70">
+              <span className="text-[11px] font-bold text-gray-500 w-16 pl-1">ŞEHİR</span>
+              <SearchableSelect
+                value={form.city}
+                onChange={val => setForm(p => ({ ...p, city: val, district: '', neighborhood: '' }))}
+                options={availableCities}
+                placeholder="Şehir seçin veya yazın..."
+              />
+              <button type="button" onClick={() => setForm(p => ({ ...p, city_visible: !p.city_visible }))} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex-shrink-0 ${form.city_visible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>{form.city_visible ? 'Göster' : 'Gizle'}</button>
+            </div>
+
+            {/* İLÇE */}
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100/70">
+              <span className="text-[11px] font-bold text-gray-500 w-16 pl-1">İLÇE</span>
+              <SearchableSelect
+                value={form.district}
+                onChange={val => setForm(p => ({ ...p, district: val, neighborhood: '' }))}
+                options={availableDistricts}
+                placeholder="İlçe seçin veya yazın..."
+              />
+              <button type="button" onClick={() => setForm(p => ({ ...p, district_visible: !p.district_visible }))} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex-shrink-0 ${form.district_visible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>{form.district_visible ? 'Göster' : 'Gizle'}</button>
+            </div>
+
+            {/* MAHALLE */}
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100/70">
+              <span className="text-[11px] font-bold text-gray-500 w-16 pl-1">MAHALLE</span>
+              <SearchableSelect
+                value={form.neighborhood}
+                onChange={val => setForm(p => ({ ...p, neighborhood: val }))}
+                options={availableNeighborhoods}
+                placeholder="Mahalle seçin veya yazın..."
+              />
+              <button type="button" onClick={() => setForm(p => ({ ...p, neighborhood_visible: !p.neighborhood_visible }))} className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all flex-shrink-0 ${form.neighborhood_visible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}>{form.neighborhood_visible ? 'Göster' : 'Gizle'}</button>
+            </div>
           </div>
         </div>
 
+        {/* EKSTRA KONUMLAR */}
         {extraDistances.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">🌟 İlana Eklenen Diğer Noktalar</h4>
+            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">🌟 İlana Bağlanan Ekstra Konumlar</h4>
             <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
               {extraDistances.map((item, idx) => (
                 <div key={idx} className={`flex items-center justify-between border rounded-xl p-2.5 transition-all ${item.visible ? 'bg-white border-teal-100' : 'bg-gray-50 border-gray-200 opacity-70'}`}>
@@ -1079,18 +1321,10 @@ export default function PropertyForm() {
         )}
       </div>
 
+      {/* SAĞ TARAF */}
       <div className="lg:col-span-7 space-y-4 sticky top-6">
-        <div className="flex items-center justify-end">
-          <div className="bg-indigo-50 border border-indigo-100 px-4 py-2.5 rounded-xl flex items-center gap-3 shadow-sm">
-            <span className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-              <Hash className="w-3.5 h-3.5" /> Aktif Referans No:
-            </span>
-            <span className="font-mono text-base font-black text-indigo-700 bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100">
-              {form.property_ref || 'Atanmadı'}
-            </span>
-          </div>
-        </div>
 
+        {/* HARİTA */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
           <div className="relative">
             <div className="flex gap-2 bg-gray-50 border border-gray-200 rounded-xl p-1.5 focus-within:border-teal-500 focus-within:bg-white shadow-sm">
@@ -1116,6 +1350,7 @@ export default function PropertyForm() {
           <div id="interactive-map" className="rounded-xl border border-gray-200 shadow-inner h-[530px] w-full z-10" style={{ minHeight: '530px' }} />
         </div>
 
+        {/* MANUEL HARİTA KONSOLU */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1">
@@ -1169,39 +1404,10 @@ export default function PropertyForm() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <Radar className="w-4 h-4 text-rose-600 animate-pulse" /> Sosyal Çevresel Radar İstasyonu
-            </h3>
-            <button type="button" onClick={handleAutoScanNearbyRadar} disabled={radarLoading} className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-extrabold px-3 py-1.5 rounded-lg flex items-center gap-1">
-              {radarLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : '🌐'} Radarı Başlat
-            </button>
-          </div>
-          {radarResults.length > 0 && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-56 overflow-y-auto space-y-2.5 divide-y divide-slate-200/50">
-              {radarResults.map(item => (
-                <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] pt-2.5 first:pt-0 gap-2">
-                  <div className="flex flex-col max-w-[45%]">
-                    <span className="font-extrabold text-slate-700 truncate">{item.name}</span>
-                    <span className="text-[9px] text-slate-400 font-bold">{item.type} • {formatMeters(item.distance)}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    <button type="button" onClick={() => handleSelectCategoryAndSave('Denize', item.distance)} className="bg-white hover:bg-teal-600 hover:text-white border border-gray-200 text-[9px] font-bold px-1.5 py-0.5 rounded transition-all">🏖️ Deniz</button>
-                    <button type="button" onClick={() => handleSelectCategoryAndSave('Merkeze', item.distance)} className="bg-white hover:bg-teal-600 hover:text-white border border-gray-200 text-[9px] font-bold px-1.5 py-0.5 rounded transition-all">🏙️ Merkez</button>
-                    <button type="button" onClick={() => handleSaveAirportWithCustomName(item.name, item.distance)} className="bg-white hover:bg-teal-600 hover:text-white border border-gray-200 text-[9px] font-bold px-1.5 py-0.5 rounded transition-all">✈️ Haval.</button>
-                    <button type="button" onClick={() => handleSelectCategoryAndSave('AVM / Market', item.distance)} className="bg-white hover:bg-teal-600 hover:text-white border border-gray-200 text-[9px] font-bold px-1.5 py-0.5 rounded transition-all">🛒 AVM</button>
-                    <button type="button" onClick={() => handleSelectCategoryAndSave(item.name, item.distance)} className="bg-slate-900 hover:bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded transition-all">+ Özel</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        {/* CANLI METİN */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-inner">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">✍️ Çıktı Rapor Özeti</label>
+            <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">✍️ Portföy İlan Metni</label>
             <button type="button" onClick={handleCopyToClipboardStation} className="bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-black px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-95">
               <Copy className="w-3.5 h-3.5" /> Kopyala
             </button>
@@ -1209,16 +1415,18 @@ export default function PropertyForm() {
           <textarea value={compiledTextOutput} onChange={e => setCompiledTextOutput(e.target.value)} rows={6} className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-semibold text-slate-700 focus:outline-none focus:border-teal-500 transition-all font-mono leading-relaxed resize-y" placeholder="Konum ekledikçe burası otomatik dolar..." />
         </div>
 
+        {/* JSON ENTEGRASYONU */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-wider">⚡ Yapay Zeka JSON Entegrasyonu</h3>
-            <a href="https://gemini.google.com/gem/1gJI0wTld-4eE1YwW064Hod3IeewO-son?usp=sharing" target="_blank" rel="noopener noreferrer" className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1">🤖 Gemini Gem Odası</a>
+            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-wider">⚡ Yapay Zeka (JSON) Veri Entegrasyonu</h3>
+            <a href="https://gemini.google.com/gem/1gJI0wTld-4eE1YwW064Hod3IeewO-son?usp=sharing" target="_blank" rel="noopener noreferrer" className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1">🤖 Gemini Gem Analiz Odası</a>
           </div>
           <p className="text-[10px] text-gray-400 leading-normal">Gemini veya başka bir AI'dan aldığınız JSON çıktısını yapıştırarak formu otomatik doldurun.</p>
           <textarea value={jsonInput} onChange={e => setJsonInput(e.target.value)} rows={4} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] font-mono text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-500 transition-all leading-relaxed" placeholder='{ "sorgulanan_koordinat": "...", "tahmini_bolge": "...", "onemli_yerler_ve_avmler": [...] }' />
-          <button type="button" onClick={handleProcessJsonPasteStation} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black py-2.5 rounded-xl flex items-center justify-center gap-1.5 active:scale-98">📥 JSON Çıktısını Çözümle ve Aktar</button>
+          <button type="button" onClick={handleProcessJsonPasteStation} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black py-2.5 rounded-xl flex items-center justify-center gap-1.5 active:scale-98">📥 JSON Çıktısını Çözümle ve Forma Aktar</button>
         </div>
 
+        {/* KAYDET */}
         <div className="pt-1 flex justify-end">
           <button type="button" onClick={handleSaveAndNext} disabled={mutation.isPending} className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl flex items-center gap-1.5">
             {mutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
