@@ -12,7 +12,8 @@ import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
 import Properties from '@/pages/Properties';
 import PropertyForm from '@/pages/PropertyForm';
-import PropertyForm2 from '@/pages/PropertyForm2'; // YENİ EKLENEN IMPORT
+import PropertyForm2 from '@/pages/PropertyForm2';
+import PropertyView from '@/pages/PropertyView';
 import Projects from '@/pages/Projects';
 import ProjectForm from '@/pages/ProjectForm';
 import Packages from '@/pages/Packages';
@@ -83,8 +84,8 @@ const AuthenticatedApp = () => {
         <Route path="/properties/new" element={<PropertyForm />} />
         <Route path="/properties/:id" element={<PropertyForm />} />
         
-        {/* YENİ EKLENEN STRATEJİK ADIM ROTASI */}
         <Route path="/properties/step2/:id" element={<PropertyForm2 />} />
+        <Route path="/properties/:id/view" element={<PropertyView />} />
         
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/new" element={<ProjectForm />} />

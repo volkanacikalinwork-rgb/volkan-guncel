@@ -5,7 +5,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Search, Building2, Star } from 'lucide-react';
+import { Pencil, Trash2, Search, Building2, Star, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Properties() {
@@ -109,14 +109,18 @@ export default function Properties() {
                     <td className="px-3 py-3.5"><StatusBadge status={p.status || 'draft'} /></td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Link to={`/properties/${p.id}`}>
+                        <Link to={`/properties/${p.id}/view`} title="Onizle">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-teal-600 hover:text-teal-700 hover:bg-teal-50"><Eye className="w-3.5 h-3.5" /></Button>
+                        </Link>
+                        <Link to={`/properties/${p.id}`} title="Duzenle">
                           <Button variant="ghost" size="icon" className="h-7 w-7"><Pencil className="w-3.5 h-3.5" /></Button>
                         </Link>
                         <Button
-                          variant="ghost" 
-                          size="icon" 
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => { if (confirm('İlanı silmek istediğinizden emin misiniz?')) deleteMutation.mutate(p.id); }}
+                          title="Sil"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
