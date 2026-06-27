@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { Loader2, Plus, Pencil, Check, X, Globe, Building2, Map, MapPin, ChevronRight, ChevronDown, Trash2, Zap } from 'lucide-react';
+import { Loader2, Plus, Pencil, Check, X, Globe, Building2, Map, MapPin, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/ui/PageHeader';
 
 // URL dostu metin çevirici (Türkçe karakter sorunlarını çözer)

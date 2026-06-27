@@ -47,9 +47,9 @@ const createEntityRepo = (entityName) => {
     create: async (item) => {
       const data = getStorageData(entityName);
       const newItem = { 
-        id: entityName.toLowerCase() + '_' + Math.random().toString(36).substr(2, 9),
+        id: entityName.toLowerCase() + '_' + Math.random().toString(36).substring(2, 11),
         created_date: new Date().toISOString(),
-        ...item 
+        ...item
       };
       data.push(newItem);
       setStorageData(entityName, data);
@@ -77,7 +77,7 @@ const createEntityRepo = (entityName) => {
     bulkCreate: async (items) => {
       const data = getStorageData(entityName);
       const newItems = items.map(item => ({
-        id: entityName.toLowerCase() + '_' + Math.random().toString(36).substr(2, 9),
+        id: entityName.toLowerCase() + '_' + Math.random().toString(36).substring(2, 11),
         created_date: new Date().toISOString(),
         ...item
       }));

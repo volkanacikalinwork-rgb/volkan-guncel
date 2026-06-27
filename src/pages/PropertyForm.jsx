@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff, MapPin, Save, Navigation, Plus, Trash2, Search, Crosshair, Layers, Radar, Copy, ArrowRight, Hash, CheckCircle2, AlertCircle, Zap, ChevronDown } from 'lucide-react';
+import { Loader2, Eye, EyeOff, MapPin, Save, Navigation, Trash2, Search, Crosshair, Layers, Copy, ArrowRight, CheckCircle2, AlertCircle, Zap, ChevronDown } from 'lucide-react';
 
 // 🔧 PropertyForm2 sayfasının route'u. Projenizdeki gerçek route farklıysa
 // SADECE bu satırı güncellemeniz yeterli — kodun başka hiçbir yerine dokunmanıza gerek yok.
 const PROPERTY_FORM_2_PATH = (propertyId) => `/properties/step2/${propertyId}`;
 
-const BASE_CATEGORIES = ['Denize', 'Merkeze', 'Havalimanı', 'AVM / Market'];
+const BASE_CATEGORIES = ['Denize', 'Havalimanı', 'AVM / Market'];
 
 // ─── YARDIMCI FONKSİYONLAR VE FORMATLAYICILAR ──────────────────────────────────
 const slugify = (text) => {
@@ -194,13 +194,12 @@ const AUTO_SCAN_STEPS = [
   { key: 'airports',  label: 'Havalimanları Aranıyor',    icon: '✈️' },
   { key: 'sea',       label: 'Deniz Mesafesi Ölçülüyor', icon: '🌊' },
   { key: 'market',    label: 'AVM / Market Aranıyor',     icon: '🛍️' },
-  { key: 'hospital',  label: 'Hastane Aranıyor',           icon: '🏥' },
+  { key: 'hospital',  label: 'Hastane Aranıyor',          icon: '🏥' },
   { key: 'transport', label: 'Ulaşım Hatları Taranıyor',  icon: '🚇' },
   { key: 'uni',       label: 'Üniversiteler Aranıyor',    icon: '🎓' },
 ];
 
 // ─── LOKASYON VARLIK KONTROLÜ (MERKEZİ FONKSİYON) ───────────────────────────
-// Şehir + İlçe eşleşmesi yeterliyse true döner (mahalle farklı olsa bile çakışma sayılır)
 function locationExistsInList(locationsList, country, city, district) {
   const c_country = normalizeText(country || 'Türkiye');
   const c_city    = normalizeText(city);
@@ -272,7 +271,6 @@ export default function PropertyForm() {
       queryClient.invalidateQueries({ queryKey: ['all-properties-for-validation'] });
       toast.success('Tüm konum verileri veritabanına mühürlendi!');
       const savedId = res?.id || res?.[0]?.id || res?.data?.id || id;
-      // ⚡ Kaydet ve Sonraki Adıma Geç: PropertyForm2'ye (2. adım) yönlendir
       if (savedId && savedId !== 'new') {
         navigate(PROPERTY_FORM_2_PATH(savedId));
       } else {
@@ -491,9 +489,7 @@ export default function PropertyForm() {
     });
   }, [leafletLoaded, mapType, form.lat, form.lng]);
 
-  // ─── ⚡ OTOMATİK VERİTABANI İŞLEYİCİ (ADRES ÇÖZÜCÜ) ───────────────────────────
-  // 🔧 DÜZELTME: Artık sadece Şehir+İlçe bazlı kontrol yapılıyor (mahalle farklı olsa
-  //    da tekrar kayıt önleniyor). locationsRef yerine güncel snapshot alınıyor.
+  // ─── Adres Çözücü ───────────────────────────────────────────
   const processAndSaveNominatimData = useCallback(async (addr) => {
     const country = (addr.country || 'Türkiye').trim();
     const cityClean = (addr.province || addr.city || addr.state || '').toLowerCase().replace(' ili', '').replace('büyükşehir belediyesi', '').trim();
@@ -535,10 +531,8 @@ export default function PropertyForm() {
       property_ref: (isNew && autoRef) ? autoRef : prev.property_ref
     }));
 
-    // ─── 🔧 DÜZELTME: Şehir + İlçe bazlı kontrol (mahalle farklı olsa da kaydı engelle) ───
-    if (!finalCity || !finalDistrict) return; // Şehir/ilçe yoksa kaydetme
+    if (!finalCity || !finalDistrict) return;
 
-    // locationsRef.current'taki güncel listeyi kullan
     const alreadyExists = locationExistsInList(
       locationsRef.current,
       finalCountry,
@@ -557,13 +551,11 @@ export default function PropertyForm() {
         });
         queryClient.invalidateQueries({ queryKey: ['locations'] });
         toast.success(`${finalDistrict} veritabanına otomatik eklendi!`);
-      } catch (e) {
-        // Sessizce geç — race condition'da başka istek zaten eklemiş olabilir
-      }
+      } catch (e) {}
     }
   }, [isNew, id, refNoConfigs, allProperties, queryClient]);
 
-  // ─── ⚡ OTOMATİK TARAMA FONKSİYONU ───────────────────────────────────────────
+  // ─── OTOMATİK TARAMA FONKSİYONU ───────────────────────────────────────────
   const runAutoScan = useCallback(async (lat, lng) => {
     if (!lat || !lng) return;
     const latF = parseFloat(lat);
@@ -636,16 +628,26 @@ export default function PropertyForm() {
       const radiusSteps = [5000, 15000, 45000, 100000, 250000];
       let found = null;
       for (const radius of radiusSteps) {
-        const query = `[out:json][timeout:25];(nwr["natural"="beach"](around:${radius},${lat},${lng});nwr["leisure"="marina"](around:${radius},${lat},${lng});nwr["place"~"sea|ocean"](around:${radius},${lat},${lng});nwr["water"="sea"](around:${radius},${lat},${lng});); out center;`;
+        const query = `[out:json][timeout:25];(way["natural"="beach"](around:${radius},${lat},${lng});way["natural"="coastline"](around:${radius},${lat},${lng});way["leisure"="marina"](around:${radius},${lat},${lng});); out geom;`;
         const rawData = await overpassFetch(query, 15000);
         if (!rawData?.elements?.length) continue;
         let minDist = Infinity;
         for (const el of rawData.elements) {
-          const elLat = el.lat ?? el.center?.lat;
-          const elLon = el.lon ?? el.center?.lon;
-          if (elLat && elLon) {
-            const d = calculateHaversine(latF, lngF, elLat, elLon);
-            if (d < minDist) minDist = d;
+          const geom = el.geometry;
+          if (!geom || geom.length === 0) {
+            const elLat = el.lat ?? el.center?.lat;
+            const elLon = el.lon ?? el.center?.lon;
+            if (elLat && elLon) {
+              const d = calculateHaversine(latF, lngF, elLat, elLon);
+              if (d < minDist) minDist = d;
+            }
+            continue;
+          }
+          for (const node of geom) {
+            if (node.lat && node.lon) {
+              const d = calculateHaversine(latF, lngF, node.lat, node.lon);
+              if (d < minDist) minDist = d;
+            }
           }
         }
         if (minDist !== Infinity) { found = minDist; break; }
@@ -732,8 +734,6 @@ export default function PropertyForm() {
     toast.success('🎯 Otomatik tarama tamamlandı! Tüm sonuçlar hazır.');
   }, [processAndSaveNominatimData]);
 
-  // ─── ⚡ KOORDİNAT DEĞİŞTİĞİNDE OTOMATİK TARAMAYI BAŞLAT ──────────────────────
-  const lastScannedCoord = useRef('');
   useEffect(() => {
     const coordKey = `${form.lat},${form.lng}`;
     if (form.lat && form.lng && coordKey !== lastScannedCoord.current) {
@@ -744,6 +744,8 @@ export default function PropertyForm() {
       return () => clearTimeout(timer);
     }
   }, [form.lat, form.lng, runAutoScan]);
+
+  const lastScannedCoord = useRef('');
 
   useEffect(() => {
     if (!isNew) return; 
@@ -964,7 +966,6 @@ export default function PropertyForm() {
       const finalDistrict = capitalize(incomingDistrict);
       const finalNeigh    = capitalize(incomingNeighborhood);
 
-      // ─── 🔧 DÜZELTME: JSON paste'de de Şehir+İlçe bazlı kontrol ───
       const alreadyExists = locationExistsInList(
         locationsRef.current,
         'Türkiye',
@@ -992,7 +993,6 @@ export default function PropertyForm() {
           else arr.push(inc);
           const ll = inc.label.toLowerCase();
           if ((ll.includes('avm') || ll.includes('migros') || ll.includes('market') || ll.includes('a101')) && !arr.find(d => d.label === 'AVM / Market')) arr.push({ label: 'AVM / Market', meters: inc.meters, visible: true });
-          if (ll.includes('merkez') && !arr.find(d => d.label === 'Merkeze')) arr.push({ label: 'Merkeze', meters: inc.meters, visible: true });
           if (ll.includes('havalimanı') && !arr.find(d => d.label === 'Havalimanı')) arr.push({ label: 'Havalimanı', meters: inc.meters, visible: true });
           if ((ll.includes('deniz') || ll.includes('sahil') || ll.includes('plaj')) && !arr.find(d => d.label === 'Denize')) arr.push({ label: 'Denize', meters: inc.meters, visible: true });
         });
@@ -1234,7 +1234,6 @@ export default function PropertyForm() {
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 { label: 'Denize', icon: '🏖️', name: 'Denize Uzaklık' },
-                { label: 'Merkeze', icon: '🏙️', name: 'Şehir Merkezi' },
                 { label: 'Havalimanı', icon: '✈️', name: 'Havalimanı' },
                 { label: 'AVM / Market', icon: '🛒', name: 'AVM / Market' },
               ].map(({ label, icon, name }) => (

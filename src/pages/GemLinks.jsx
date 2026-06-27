@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, ExternalLink, Gem, Save, Loader2, Info } from 'lucide-react';
+import { Trash2, ExternalLink, Gem, Save, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function GemLinks() {

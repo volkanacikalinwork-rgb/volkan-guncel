@@ -689,10 +689,6 @@ export default function PropertyForm2() {
             </p>
           </div>
         </div>
-        <Button onClick={handleSubmit} disabled={mutation.isPending} className="sm:ml-auto gap-2 gradient-primary text-white border-0 hover:opacity-90 px-6 h-10 rounded-xl shadow-sm">
-          {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Portföyü Yayına Al
-        </Button>
       </div>
 
       {/* Tab Navigasyon */}
@@ -1151,7 +1147,7 @@ export default function PropertyForm2() {
                   >
                     <div className="text-xl">🏖️</div>
                     <span className="text-[11px] font-jakarta tracking-wide flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-sky-600" /> Seafront
+                      <Sparkles className="w-3.5 h-3.5 text-sky-600" /> seafront
                     </span>
                   </div>
 
@@ -1890,7 +1886,7 @@ export default function PropertyForm2() {
       <div className="flex justify-end pt-2">
         <Button onClick={handleSubmit} disabled={mutation.isPending} className="gap-2 gradient-primary text-white border-0 hover:opacity-90 px-8 h-11 rounded-xl shadow-md font-bold text-sm">
           {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Kaydet ve Sihirbazı Kapat
+          {activeTab === 'seo' ? 'Kaydet ve Test İlanı Gör' : 'Kaydet ve Sonraki Aşamaya Geç'}
         </Button>
       </div>
     </div>

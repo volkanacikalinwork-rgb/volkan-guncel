@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import WizardInfoBox from './WizardInfoBox';
 import GemOutputParser from './GemOutputParser';
-import { Sparkles, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft } from 'lucide-react';
 
 function buildInfoText(form) {
   const city = form.city ? form.city.charAt(0).toUpperCase() + form.city.slice(1) : '';

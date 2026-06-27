@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, AlertCircle, Layers } from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 function buildInfoText(form) {
   const city = form.city ? form.city.charAt(0).toUpperCase() + form.city.slice(1) : '';
