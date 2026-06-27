@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -45,10 +45,27 @@ const PROPERTY_STATUS_LABELS = {
   long_rent: 'Uzun Dönem Kiralik',
 };
 
+function BeachIcon({ className }) {
+  return <span className={className}>🏖️</span>;
+}
+
+// Simple icon fallbacks
+function Zap({ className }) {
+  return <span className={className}>⚡</span>;
+}
+
+function Film({ className }) {
+  return <span className={className}>🎬</span>;
+}
+
+function Waves({ className }) {
+  return <span className={className}>🌊</span>;
+}
+
 const DISTANCE_ICONS = {
-  'denize': 'BeachIcon',
-  'deniz': 'BeachIcon',
-  'beach': 'BeachIcon',
+  'denize': BeachIcon,
+  'deniz': BeachIcon,
+  'beach': BeachIcon,
   'havalimani': Plane,
   'airport': Plane,
   'havaliman': Plane,
@@ -82,30 +99,17 @@ const FEATURE_CATEGORIES = {
 };
 
 const FEATURE_ICONS = {
-  'Pool': 'BeachIcon', 'Sea View': 'BeachIcon', 'Seafront': 'BeachIcon', 'Indoor Pool': 'BeachIcon', 'Private Pool': 'BeachIcon', 'Infinity Pool': 'BeachIcon', 'Children\'s Pool': 'BeachIcon',
-  'Security': Shield, 'Camera': Camera, 'Alarm': Shield, 'Smart Home': Sparkles, 'Generator': 'ZapIcon',
+  'Pool': BeachIcon, 'Sea View': BeachIcon, 'Seafront': BeachIcon, 'Indoor Pool': BeachIcon, 'Private Pool': BeachIcon, 'Infinity Pool': BeachIcon, 'Children\'s Pool': BeachIcon,
+  'Security': Shield, 'Camera': Camera, 'Alarm': Shield, 'Smart Home': Sparkles, 'Generator': Zap,
   'Gym': Dumbbell, 'Spa': Sparkles, 'Sauna': Sparkles, 'Turkish Bath': Sparkles, 'Steam Room': Sparkles, 'Jacuzzi': Sparkles, 'Massage Room': Sparkles,
   'Elevator': ChevronUp, 'Indoor Parking': Car, 'Private Parking': Car, 'Garden': TreeDeciduous, 'Private Garden': TreeDeciduous,
-  'Cinema': 'FilmIcon', 'Game Room': Gamepad2, 'Billiards': Gamepad2, 'Tennis': Gamepad2, 'Basketball': Gamepad2,
+  'Cinema': Film, 'Game Room': Gamepad2, 'Billiards': Gamepad2, 'Tennis': Gamepad2, 'Basketball': Gamepad2,
   'Cafe': Coffee, 'Restaurant': Utensils, 'Poolside Bar': Coffee, 'Library': BookOpen,
   'Citizenship': Award, 'Residence Permit': FileText, 'Invest in Turkey': Landmark,
-  'Beach': 'BeachIcon', 'Near the Sea': 'BeachIcon', 'City View': Building, 'Nature View': TreeDeciduous,
+  'Beach': BeachIcon, 'Near the Sea': BeachIcon, 'City View': Building, 'Nature View': TreeDeciduous,
   'Caretaker': User, 'Concierge Service': User,
   'default': CheckCircle2,
 };
-
-// Simple Zap icon fallback
-function Zap({ className }) {
-  return <span className={className}>⚡</span>;
-}
-
-function Film({ className }) {
-  return <span className={className}>🎬</span>;
-}
-
-function Waves({ className }) {
-  return <span className={className}>🌊</span>;
-}
 
 function formatDistance(meters) {
   const m = parseInt(meters);
@@ -616,13 +620,12 @@ export default function PropertyView() {
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {distances.map((d, i) => {
-                    const iconOrString = getDistanceIcon(d.label);
-                    const isEmoji = typeof iconOrString === 'string';
+                    const IconComponent = getDistanceIcon(d.label);
+                    const isEmoji = typeof IconComponent === 'string';
                     return (
                       <div key={i} className="flex items-center gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-teal-200 transition-colors">
                         <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
-                          {isEmoji ? <span className="text-xl">🏖️</span> : <span className="text-xl">{iconOrString === 'BeachIcon' ? '🏖️' : ''}</span>}
-                          {!isEmoji && iconOrString && typeof iconOrString !== 'string' && <span className="text-xl">{React.createElement(iconOrString, { className: 'w-6 h-6 text-teal-500' })}</span>}
+                          {isEmoji ? <span className="text-xl">🏖️</span> : <IconComponent className="w-6 h-6 text-teal-500" />}
                         </div>
                         <div className="flex-1">
                           <div className="text-xs text-gray-400 font-semibold uppercase">{d.label}</div>
